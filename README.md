@@ -12,5 +12,5 @@ CONFIG = 0x00
 
 ## Verifying CONFIG register
 
-rx[0] returns 0x00 (0000 0000) which is the status byte.
-rx[1] returns 0x0E (0000 1110) which is the CONFIG register being read back.
+rx[0] returns 0x0E (0000 1110) which is the status byte.
+rx[1] returns 0x08 (0000 1000) which is the CONFIG register being read back.

@@ -18,13 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "stm32l432xx.h"
 #include "stm32l4xx_hal_gpio.h"
 #include "stm32l4xx_hal_spi.h"
 #include <stdio.h>
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
 
@@ -49,6 +49,16 @@
 
 #define NRF24_CMD_R_REGISTER  0x00
 #define NRF24_REG_CONFIG      0x00
+
+#define NRF24_CMD_W_REGISTER    0x20
+#define NRF24_CMD_W_TX_PAYLOAD  0xA0
+#define NRF24_CMD_FLUSH_TX      0xE1
+
+#define NRF24_REG_EN_AA         0x01
+#define NRF24_REG_RF_CH         0x05
+#define NRF24_REG_STATUS        0x07
+#define NRF24_REG_RX_ADDR_P0    0x0A
+#define NRF24_REG_TX_ADDR       0x10
 
 /* USER CODE END PM */
 
@@ -78,6 +88,43 @@ uint8_t nrf24_read_reg(uint8_t reg)
     HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
 
     return rx[1];
+}
+
+void nrf24_write_reg(uint8_t reg, uint8_t value)
+{
+    uint8_t tx[2] = { NRF24_CMD_W_REGISTER | reg, value };
+    uint8_t rx[2];
+
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
+    HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2, HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
+}
+
+void nrf24_write_addr_reg(uint8_t reg, const uint8_t *addr, uint8_t len)
+{
+    uint8_t cmd = NRF24_CMD_W_REGISTER | reg;
+
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(&hspi1, &cmd, 1, HAL_MAX_DELAY);
+    HAL_SPI_Transmit(&hspi1, (uint8_t *)addr, len, HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
+}
+
+void nrf24_write_payload(const uint8_t *data, uint8_t len)
+{
+    uint8_t cmd = NRF24_CMD_W_TX_PAYLOAD;
+
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(&hspi1, &cmd, 1, HAL_MAX_DELAY);
+    HAL_SPI_Transmit(&hspi1, (uint8_t *)data, len, HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
+}
+
+void nrf24_pulse_ce(void)
+{
+    HAL_GPIO_WritePin(CE_Port, CE_Pin, GPIO_PIN_SET);
+    HAL_Delay(1);   // comfortably clears the 10µs minimum (Thce)
+    HAL_GPIO_WritePin(CE_Port, CE_Pin, GPIO_PIN_RESET);
 }
 
 /* USER CODE END PFP */
@@ -130,8 +177,23 @@ int main(void)
   // set PRIM_RX = 0
   // wait for the startup time, and configure any other radio registers you need
 
+  // Begin read and print CONFIG register
+  HAL_Delay(100);
   uint8_t cfg = nrf24_read_reg(NRF24_REG_CONFIG);
   printf("CONFIG = 0x%02X\r\n", cfg);
+  // End read and print CONFIG register
+
+  // Begin config for transmit
+  uint8_t addr[5] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};   // must match the receiver's RX_ADDR_P0
+
+  nrf24_write_addr_reg(NRF24_REG_TX_ADDR, addr, 5);
+  nrf24_write_addr_reg(NRF24_REG_RX_ADDR_P0, addr, 5);  // needed so this node can receive the ACK
+  nrf24_write_reg(NRF24_REG_RF_CH, 76);                 // 2400 + 76 = 2476 MHz; must match the receiver
+  nrf24_write_reg(NRF24_REG_CONFIG, 0x0A);              // EN_CRC=1, CRCO=0, PWR_UP=1, PRIM_RX=0
+
+  HAL_Delay(5);  // Tpd2stby: worst case 4.5ms for Ls=90mH crystals — give it margin
+// End config for transmit
+
 
   /* USER CODE END 2 */
 
@@ -143,15 +205,17 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    // write payload
-    // pulse CE high for at least 10 µs
-    // bring CE low
-    // wait for your interval, repeat
+    uint8_t payload[1] = { 0xAA };
 
+    nrf24_write_payload(payload, 1);
+    nrf24_pulse_ce();
 
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-    // printf("test\n\r");
+    uint8_t status = nrf24_read_reg(NRF24_REG_STATUS);
+    printf("STATUS = 0x%02X\r\n", status);
+    nrf24_write_reg(NRF24_REG_STATUS, 0x70);  // clear RX_DR/TX_DS/MAX_RT by writing 1s
+
     HAL_Delay(1000);
+
   }
   /* USER CODE END 3 */
 }
@@ -235,7 +299,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT; // changed to 8 from 4. Where was this in CubeMX? See 8.1 on datasheet.
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -308,7 +372,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3|GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
