@@ -14,3 +14,5 @@ CONFIG = 0x00
 
 rx[0] returns 0x0E (0000 1110) which is the status byte.
 rx[1] returns 0x08 (0000 1000) which is the CONFIG register being read back.
+
+functional example sending one packet every 1 second
