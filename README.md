@@ -7,6 +7,10 @@ VCC - 3v3
 CSN - A3/PA_4
 MOSI - A6/PA_7
 
+VRX
+VRY
+SW
+
 CONFIG = 0x0E
 CONFIG = 0x00
 
