@@ -31,6 +31,13 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+#pragma pack(push, 1)
+typedef struct {
+  uint16_t x;
+  uint16_t y;
+} joystick_payload_t;
+#pragma pack(pop)
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -228,12 +235,17 @@ int main(void) {
   /* USER CODE BEGIN WHILE */
   while (1) {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
 
-    uint8_t payload[1] = {0xAA};
+    // uint8_t payload[1] = {0xAA}; // commented out to send joystick data
+    // nrf24_write_payload(payload, 1); // commented out to send joystick data
 
-    nrf24_write_payload(payload, 1);
+    joystick_payload_t payload;            // added to send joystick data
+    Joystick_Read(&payload.x, &payload.y); // added to send joystick data
+
+    nrf24_write_payload((uint8_t *)&payload,
+                        sizeof(payload)); // added to send joystick data
+
     nrf24_pulse_ce();
 
     uint8_t status = nrf24_read_reg(NRF24_REG_STATUS);
