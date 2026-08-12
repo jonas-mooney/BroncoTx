@@ -253,7 +253,7 @@ int main(void) {
     nrf24_write_reg(NRF24_REG_STATUS,
                     0x70); // clear RX_DR/TX_DS/MAX_RT by writing 1s
 
-    HAL_Delay(1000);
+    HAL_Delay(200);
 
     Joystick_Read(&x, &y);
 
