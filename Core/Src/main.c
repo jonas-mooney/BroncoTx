@@ -91,16 +91,16 @@ static void MX_SPI1_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
-uint8_t nrf24_read_reg(uint8_t reg) {
-  uint8_t tx[2] = {NRF24_CMD_R_REGISTER | reg, 0xFF};
-  uint8_t rx[2] = {0};
+// uint8_t nrf24_read_reg(uint8_t reg) {
+//   uint8_t tx[2] = {NRF24_CMD_R_REGISTER | reg, 0xFF};
+//   uint8_t rx[2] = {0};
 
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
+//   HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
+//   HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2, HAL_MAX_DELAY);
+//   HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
 
-  return rx[1];
-}
+//   return rx[1];
+// }
 
 void nrf24_write_reg(uint8_t reg, uint8_t value) {
   uint8_t tx[2] = {NRF24_CMD_W_REGISTER | reg, value};
