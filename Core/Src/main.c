@@ -51,24 +51,12 @@ typedef struct {
 #define CE_Port GPIOA
 #define CE_Pin GPIO_PIN_3
 
-#define CSN_Port GPIOA
-#define CSN_Pin GPIO_PIN_4
-
-#define NRF24_CMD_R_REGISTER 0x00
 #define NRF24_REG_CONFIG 0x00
 
-#define NRF24_CMD_W_REGISTER 0x20
-#define NRF24_CMD_W_TX_PAYLOAD 0xA0
-#define NRF24_CMD_FLUSH_TX 0xE1
-
-#define NRF24_REG_EN_AA 0x01
 #define NRF24_REG_RF_CH 0x05
 #define NRF24_REG_STATUS 0x07
 #define NRF24_REG_RX_ADDR_P0 0x0A
 #define NRF24_REG_TX_ADDR 0x10
-
-#define SW_Pin GPIO_PIN_6
-#define SW_GPIO_Port GPIOB
 
 /* USER CODE END PM */
 
@@ -91,79 +79,16 @@ static void MX_SPI1_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
-uint8_t nrf24_read_reg(uint8_t reg) {
-  uint8_t tx[2] = {NRF24_CMD_R_REGISTER | reg, 0xFF};
-  uint8_t rx[2] = {0};
-
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
-
-  return rx[1];
-}
-
-void nrf24_write_reg(uint8_t reg, uint8_t value) {
-  uint8_t tx[2] = {NRF24_CMD_W_REGISTER | reg, value};
-  uint8_t rx[2];
-
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
-}
-
-void nrf24_write_addr_reg(uint8_t reg, const uint8_t *addr, uint8_t len) {
-  uint8_t cmd = NRF24_CMD_W_REGISTER | reg;
-
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
-  HAL_SPI_Transmit(&hspi1, &cmd, 1, HAL_MAX_DELAY);
-  HAL_SPI_Transmit(&hspi1, (uint8_t *)addr, len, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
-}
-
-void nrf24_write_payload(const uint8_t *data, uint8_t len) {
-  uint8_t cmd = NRF24_CMD_W_TX_PAYLOAD;
-
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_RESET);
-  HAL_SPI_Transmit(&hspi1, &cmd, 1, HAL_MAX_DELAY);
-  HAL_SPI_Transmit(&hspi1, (uint8_t *)data, len, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(CSN_Port, CSN_Pin, GPIO_PIN_SET);
-}
-
 void nrf24_pulse_ce(void) {
   HAL_GPIO_WritePin(CE_Port, CE_Pin, GPIO_PIN_SET);
   HAL_Delay(1); // comfortably clears the 10µs minimum (Thce)
   HAL_GPIO_WritePin(CE_Port, CE_Pin, GPIO_PIN_RESET);
 }
 
-uint32_t Read_ADC_Channel(uint32_t channel) {
-  ADC_ChannelConfTypeDef sConfig = {0};
-  sConfig.Channel = channel;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
-  HAL_ADC_Start(&hadc1);
-  HAL_ADC_PollForConversion(&hadc1, 10);
-  uint32_t value = HAL_ADC_GetValue(&hadc1);
-  HAL_ADC_Stop(&hadc1);
-
-  return value; // 12-bit result: 0–4095
-}
-
-void Joystick_Read(uint16_t *x, uint16_t *y) {
-  *x = Read_ADC_Channel(ADC_CHANNEL_15); // PB0  = VRX
-  *y = Read_ADC_Channel(ADC_CHANNEL_10); // PA5  = VRY
-}
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-int __io_putchar(int ch) {
-  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
-  return ch;
-}
 
 /* USER CODE END 0 */
 
@@ -236,9 +161,6 @@ int main(void) {
   while (1) {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-
-    // uint8_t payload[1] = {0xAA}; // commented out to send joystick data
-    // nrf24_write_payload(payload, 1); // commented out to send joystick data
 
     joystick_payload_t payload;            // added to send joystick data
     Joystick_Read(&payload.x, &payload.y); // added to send joystick data
