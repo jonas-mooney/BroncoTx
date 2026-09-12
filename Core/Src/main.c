@@ -31,12 +31,10 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-#pragma pack(push, 1)
 typedef struct {
   uint16_t x;
   uint16_t y;
 } joystick_payload_t;
-#pragma pack(pop)
 
 /* USER CODE END PTD */
 
@@ -152,7 +150,7 @@ int main(void) {
       5); // Tpd2stby: worst case 4.5ms for Ls=90mH crystals — give it margin
   // End config for transmit
 
-  uint16_t x, y;
+  joystick_payload_t payload; // added to send joystick data
 
   /* USER CODE END 2 */
 
@@ -162,24 +160,18 @@ int main(void) {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
 
-    joystick_payload_t payload;            // added to send joystick data
     Joystick_Read(&payload.x, &payload.y); // added to send joystick data
 
-    nrf24_write_payload((uint8_t *)&payload,
-                        sizeof(payload)); // added to send joystick data
+    nrf24_write_payload((uint8_t *)&payload, sizeof(payload)); // added to send joystick data
 
     nrf24_pulse_ce();
 
     uint8_t status = nrf24_read_reg(NRF24_REG_STATUS);
-    printf("STATUS = 0x%02X\r\n", status);
-    nrf24_write_reg(NRF24_REG_STATUS,
-                    0x70); // clear RX_DR/TX_DS/MAX_RT by writing 1s
+    nrf24_write_reg(NRF24_REG_STATUS, 0x70); // clear RX_DR/TX_DS/MAX_RT by writing 1s
+
+    printf("STATUS = 0x%02X | X: %4u  Y: %4u\r\n", status, payload.x, payload.y);
 
     HAL_Delay(200);
-
-    Joystick_Read(&x, &y);
-
-    printf("X: %4u  Y: %4u\r\n", x, y);
   }
   /* USER CODE END 3 */
 }
